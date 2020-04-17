@@ -1,0 +1,14 @@
+4w3w2w1w-b
+
+1w2w3w4w-a
+
+    test1_s = [[4,'b'],[3,'w'],[2,'b'],[1,'b']]
+    test1 = Node_a(test1_s, None, 0, 0)
+    test2_s = [[3,'w'],[4,'w'],[2,'b'],[1,'b']]
+    test2 = Node_a(test2_s, None, 0, 0)
+    if (test1 < test2):
+        print('HELL YEA')
+        return
+    else:
+        print('FUCK')
+        return
