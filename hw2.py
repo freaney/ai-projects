@@ -34,28 +34,33 @@ def prune(node, alpha, beta):
     elif node.type == 'max':
         max_alpha = alpha
         # Repeat for each child 
+        i = 0
         for child in node.children:
             value = prune(child, alpha, beta)  
             max_alpha = max(max_alpha, value)  
             alpha = max(alpha, max_alpha) 
             if beta <= alpha:
-                # print(child)
-                prune_print_helper(child)
-                break        
+                if (i+1) < 2:
+                    # print(child)
+                    prune_print_helper(child.parent.children[i+1])
+                break
+            i += 1    
         return max_alpha
        
     else: 
         max_beta = beta
-  
+        j = 0
         # Repeat for each child 
         for child in node.children:          
             value = prune(child, alpha, beta) 
             max_beta = min(max_beta, value)  
             beta = min(beta, max_beta)  
             if beta <= alpha:
-                # print(child)
-                prune_print_helper(child)
-                break      
+                if (j+1) < 2:
+                    # print(child)
+                    prune_print_helper(child.parent.children[j+1])
+                break
+            j += 1
         return max_beta
     return
 
