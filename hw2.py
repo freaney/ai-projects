@@ -1,4 +1,5 @@
 import math
+import queue
 
 '''
 HW 2 for CISC681
@@ -15,12 +16,185 @@ Program will output the indices (0-11) of the terminal nodes that would be prune
 
 Class/Method Index:
 -prune(): Method used for alpha-beta pruning
--Node: Class used to create minimax tree
+-createTree(): Creates minimax tree of depth 4
+-printTree(): Prints all nodes and their properties
+-Node: Class used for minimax tree
 -__main__: Parses input string
 '''
-if __name__ == "__main__":  
-   
-    values = [3, 5, 6, 9, 1, 2, 0, -1]
+
+GOAL_HASH = '4-11'
+
+
+def prune(node, alpha, beta):
+    # Terminating condition. i.e  
+    # leaf node is reached  
+    if node.depth == 4:
+        return node.value
+
+    elif node.type == 'max':
+        max_alpha = alpha
+        # Repeat for each child 
+        for child in node.children:
+            value = prune(child, alpha, beta)  
+            max_alpha = max(max_alpha, value)  
+            alpha = max(alpha, max_alpha) 
+            if beta <= alpha:
+                # print(child)
+                prune_print_helper(child)
+                break        
+        return max_alpha
+       
+    else: 
+        max_beta = beta
+  
+        # Repeat for each child 
+        for child in node.children:          
+            value = prune(child, alpha, beta) 
+            max_beta = min(max_beta, value)  
+            beta = min(beta, max_beta)  
+            if beta <= alpha:
+                # print(child)
+                prune_print_helper(child)
+                break      
+        return max_beta
+    return
+
+# prints all child nodes of the node to be pruned
+def prune_print_helper(node):
+    fringe = queue.Queue()
+    fringe.put(node)
+    visited = set()
+    while not fringe.empty():
+        curNode = fringe.get()
+        if curNode.get_node_hash() not in visited:
+            if len(curNode.children) == 0:
+                print(curNode.index,end='')
+                print(' ',end='')
+            else:
+                for child in curNode.children:
+                    fringe.put(child)
+                visited.add(curNode.get_node_hash())
+
+
+def createTree(terminal_value_list):
+    num_nodes = 0
+    
+    # Set of nodes that have already been visited
+    # To be hashable, nodes are represented as a string concatenation of their depth then index separated by an underscore, which is unique
+    visited = set()
+
+    # TODO: Be less shitty
+    root = Node(None, list(), None)
+    node2_0 = Node(root, list(), None)
+    root.children.append(node2_0)
+    node2_1 = Node(root, list(), None)
+    root.children.append(node2_1)
+    node2_2 = Node(root, list(), None)
+    root.children.append(node2_2)
+
+    created = [root, node2_0, node2_1, node2_2]
+
+    fringe = queue.Queue()
+    list(map(fringe.put, created))
+    visited.add(root.get_node_hash())
+
+    while len(terminal_value_list) > 0:
+        curNode = fringe.get()
+        hashable_index =  curNode.get_node_hash()
+        if hashable_index not in visited:
+            if not curNode.children:
+                for i in range(2):
+                    child_node = Node(curNode, list(), None)
+                    # If statement detecting if child leaf created is a terminal leaf
+                    if (child_node.depth == 4):
+                        child_node.value = terminal_value_list.pop(0)
+                    curNode.children.append(child_node)
+                    fringe.put(child_node)
+            visited.add(curNode.get_node_hash())
+
+    return root
+
+def printTree(root):
+    fringe = queue.Queue()
+    fringe.put(root)
+    visited = set()
+
+    while not fringe.empty():
+        curNode = fringe.get()
+        if curNode.get_node_hash() not in visited:
+            print(curNode)
+            if curNode.get_node_hash() == GOAL_HASH:
+                print('/--STUMP--/')
+                return
+            else:
+                for child in curNode.children:
+                    fringe.put(child)
+                visited.add(curNode.get_node_hash())
+    # Only reaches this if fringe is empty, which would be an error
+    print('FAILURE')
+
+class Node:
+    '''
+    Node class used by minimax tree
+    '''
+
+    def __init__(self, parent, children, value):
+        '''
+		Attributes:
+            parent (Node)
+            children (list(Node)): list of child Nodes - root: 3 children, internal nodes: 2 children, terminal nodes: 0 children
+            value (int): value at current node (will be constant for terminal nodes, and updated recursively during pruning for all other nodes)
+            type (str): 'min' for minimizer node, 'max' for maximizer node
+            depth (int): depth of node in tree (1-4)
+            index (int): index of node at current depth (left to right, starts at 0)
+        '''
+        self.parent = parent
+        self.children = list()
+
+        #If statement to assign type, depth, and index
+        if not self.parent:
+            # Condition for root node
+            self.type = 'max'
+            self.depth = 1
+            self.index = 0
+            self.value = -math.inf
+        elif self.parent.type == 'max':
+            self.type =  'min'
+            self.depth = self.parent.depth + 1
+            self.index = len(self.parent.children) + self.parent.index*2
+            self.value = math.inf
+        elif self.parent.type == 'min':
+            self.type = 'max'
+            self.depth = self.parent.depth + 1
+            self.index = len(self.parent.children) + self.parent.index*2
+            self.value = -math.inf
+        else:
+            print('ICECREAM MACHINE BROKE')
+            exit
+
+
+    # Set of pancake configurations that have already been visited; to avoid graph cycles
+    visited = set()    
+
+    def get_node_hash(self):
+        hashable_index = str(self.depth) + '-' + str(self.index)
+        return hashable_index
+
+    # Node string function - used for error testing
+    def __str__(self):
+        node_str = 'Node ' + self.get_node_hash() + '\nParent: '
+        if not self.parent:
+            node_str += 'PETER PAN \n'
+        else:
+            node_str += 'Node ' + self.parent.get_node_hash() + '\n'
+        node_str += 'Children: \n'
+        for child in self.children:
+            node_str += '........Node ' + child.get_node_hash() + '\n'
+        node_str += 'Value: ' + str(self.value) + '\nType: ' + self.type + '\n'
+        return node_str
+
+if __name__ == "__main__":
+    
     print('\nPlease input 12 terminal node values separated by spaces, then hit Enter: ')
     
     input_string = input()
@@ -28,10 +202,8 @@ if __name__ == "__main__":
 
     if (len(input_list) != 12):
         print('Invalid input, please run again.')
-
-	# # Parses input to make stack of pancakes
-    # for i in range(4):
-    #     size = input_list.pop(0)
-    #     orientation = input_list.pop(0)
-    #     pancake = [int(size), orientation]
-    #     stack.append(pancake)
+    else:
+        root = createTree(input_list)
+        # Initializes alpha as negative infinity and beta as positive infinity
+        prune(root, -math.inf, math.inf)
+        print()
