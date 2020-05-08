@@ -16,6 +16,7 @@ Program will output the indices (0-11) of the terminal nodes that would be prune
 
 Class/Method Index:
 -prune(): Method used for alpha-beta pruning
+-prune_print_helper(): prints terminal nodes of the node-to-be-pruned
 -createTree(): Creates minimax tree of depth 4
 -printTree(): Prints all nodes and their properties
 -Node: Class used for minimax tree
@@ -26,8 +27,11 @@ GOAL_HASH = '4-11'
 
 
 def prune(node, alpha, beta):
-    # Terminating condition. i.e  
-    # leaf node is reached  
+    '''
+    Recursively iterates through tree, calculating alpha-beta values and calling the pruning print function as needed
+
+    Returns: value (int)
+    ''' 
     if node.depth == 4:
         return node.value
 
@@ -64,7 +68,7 @@ def prune(node, alpha, beta):
         return max_beta
     return
 
-# prints all child nodes of the node to be pruned
+# prints all child nodes of the node-to-be-pruned
 def prune_print_helper(node):
     fringe = queue.Queue()
     fringe.put(node)
@@ -82,13 +86,15 @@ def prune_print_helper(node):
 
 
 def createTree(terminal_value_list):
-    num_nodes = 0
-    
+    '''
+    Takes list of terminal node values from user and creates minimax tree of Nodes
+    The root and its immediate children are created explicitly, since the root has 3 children
+    The other nodes are created in a loop since they have 2 or no children
+    '''
     # Set of nodes that have already been visited
     # To be hashable, nodes are represented as a string concatenation of their depth then index separated by an underscore, which is unique
     visited = set()
 
-    # TODO: Be less shitty
     root = Node(None, list(), None)
     node2_0 = Node(root, list(), None)
     root.children.append(node2_0)
@@ -98,11 +104,11 @@ def createTree(terminal_value_list):
     root.children.append(node2_2)
 
     created = [root, node2_0, node2_1, node2_2]
-
     fringe = queue.Queue()
     list(map(fringe.put, created))
     visited.add(root.get_node_hash())
 
+    # Basically a Breadth First Search starting with the level 2 nodes
     while len(terminal_value_list) > 0:
         curNode = fringe.get()
         hashable_index =  curNode.get_node_hash()
@@ -116,14 +122,13 @@ def createTree(terminal_value_list):
                     curNode.children.append(child_node)
                     fringe.put(child_node)
             visited.add(curNode.get_node_hash())
-
     return root
 
+# print function used for testing - will print tree starting at input node and all its subsidiaries
 def printTree(root):
     fringe = queue.Queue()
     fringe.put(root)
     visited = set()
-
     while not fringe.empty():
         curNode = fringe.get()
         if curNode.get_node_hash() not in visited:
@@ -135,8 +140,6 @@ def printTree(root):
                 for child in curNode.children:
                     fringe.put(child)
                 visited.add(curNode.get_node_hash())
-    # Only reaches this if fringe is empty, which would be an error
-    print('FAILURE')
 
 class Node:
     '''
@@ -156,7 +159,7 @@ class Node:
         self.parent = parent
         self.children = list()
 
-        #If statement to assign type, depth, and index
+        # Assigns type, depth, index, and value
         if not self.parent:
             # Condition for root node
             self.type = 'max'
@@ -177,8 +180,6 @@ class Node:
             print('ICECREAM MACHINE BROKE')
             exit
 
-
-    # Set of pancake configurations that have already been visited; to avoid graph cycles
     visited = set()    
 
     def get_node_hash(self):
