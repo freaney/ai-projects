@@ -4,47 +4,28 @@ HW 4 for CISC681
 Uses Q-learning algorithm to determine the best path to a goal state
 
 TO RUN:
-```python3 hw4.py```
+`python3 hw4.py`
 ---Program Prompt---
-```# # # # X (#)``` (format explained below at !!!)
-Press ```Enter```
+`# # # # X (#)` (format explained below at !!!)
+Press `Enter`
 
-Program will output 
+NOTE: Aspects of program to note
+* All ties are broken in order: Left, Up, Right, Down
+* 'q' option will only print values for possible actions
+    * corner square will only print two actions
+    * goal or forbidden square will only print the exit action
+* If you would like to print the state of the board at a particular point, add `board.print_to_file()` in main or q_learn()
+* Edge tiles are limited to actions within the borders
+    * So if the agent is in tile 16 it cannot go up or right
+    * If the agent is in tile 6, it can go in any direction, assuming it is not an exit tile or next to the wall tile
+* If agent is next to wall square, it can choose action that would run it into wall square, resulting in it staying in the same square
 
 !!!
 Format
-* Input should be in format ```#1 #2 #3 #4 p``` or ```#1 #2 #3 #4 q #5```
+* Input should be in format `#1 #2 #3 #4 p` or `#1 #2 #3 #4 q #5`
     * Each # is an integer in range (1,3-16) inclusive
     * #1 and #2 are goal states
     * #3 is the forbidden square
     * #4 is the wall square
     * 'p' input will print the optimal policy
     * 'q' input will print the 4 optimal Q-values at the state with index #5
-
-Notes
-s
-alpha
-s_prime
-alpha_prime
-gamma
-Q(s,alpha)
-R(s,alpha,s_prime)
-Q(s,alpha) <-- (1-alpha)*Q(s,alpha) + alpha*(R(s,alpha,s_prime) + [gamma * max_over_a_prime(Qk(s_prime,alpha_prime)))]
-
-1. two-digit precision for convergence
-2. set epsilon to 0 after convergence
-
-Active reinforcement learning
-S = set of states
-A = set of actions per state
-T(s,a,s') = model of transitions
-R(s,a,s') = reward function
-pi(s) = policy
-don't know T or R
-Q0(s,a,) = 0
-state - current loc, prev loc, visual scope
-
-Receive a sample (s,alpha,s_prime,r)
-Consider old estimate Q(s,alpha)
-Consider new sample estimate = R(s,a,s') + gamma*max[Q(s',a')]
-Incorporate new estimate into running average

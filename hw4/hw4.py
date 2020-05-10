@@ -12,18 +12,14 @@ Uses Q-learning algorithm to determine the best path to a goal state
 
 # Constants
 LIVING_REWARD = -0.1
-DISCOUNT_RATE = 0.2 #GAMMA
-LEARNING_RATE = 0.1
 GOAL_REWARD = 100
-FORBIDDEN = -100
-EPSILON = 0.1 # Probability for random action
+FORBIDDEN_REWARD = -100
+GAMMA = 0.2 # Discount Rate
+ALPHA = 0.1 # Learning Rate
+EPSILON = 0.1 # Greedy Probability
 MAX_ITERATIONS = 10000 # Will be 10,000
+PRECISION_LIMIT = 0.009 # Limit of iterations
 START_LABEL = 2
-
-LEFT = '\u2190'
-UP = '\u2191'
-RIGHT = '\u2192'
-DOWN = '\u2193'
 
 '''
 NOTE: All representations of directions in arrays (such as in actions, neighbors, q_values)
@@ -49,11 +45,12 @@ don't know T or R
 Q0(s,a,) = 0
 state - current loc, prev loc, visual scope
 '''
-class Direction(Enum):
+class Action(Enum):
     LEFT = 0
     UP = 1
     RIGHT = 2
     DOWN = 3
+    EXIT = 4
     
     def __str__(self):
         if self.value == 0:
@@ -63,9 +60,9 @@ class Direction(Enum):
         elif self.value == 2:
             return '\u2192'
         elif self.value == 3:
-            return '\u2191'
+            return '\u2193'
         else:
-            return "error printing direction"
+            return 'X'
 
 class Tile:
     
@@ -77,17 +74,39 @@ class Tile:
         '''
         self.label = label
         self.neighbors = neighbors
-        self.q_values = [0.00]*4
-        # Default values, changed in board creation
-        self.goal = False
-        self.forbidden = False
+        # Default Tile creation assumes tile is not special and has no possible actions
+        # This will be changed during board creation
+        self.q_values = [None]*5
+        self.actions = [None]*5
+        self.isGoal = False
+        self.isForbidden = False
+        self.isWall = False
 
-    
+    def get_max_q(self):
+        if self.isWall:
+            return 0
+        else:
+            return max(q for q in self.q_values if q is not None)
+
+    def get_best_action(self):
+        return Action(self.q_values.index(self.get_max_q()))
+
     def update_q(self, q, direction):
         self.q_values[direction.value] = q
     
     def __str__(self):
-        return str(Direction.LEFT) + str(self.q_values[0]) + '|' + str(Direction.UP) + str(self.q_values[1]) + '|' + str(Direction.RIGHT) + str(self.q_values[2]) + '|'  + str(Direction.DOWN) + str(self.q_values[3])
+        tile_string = '[' + str(self.label) + ']:'
+        for i in range(4):
+            cur_q = self.q_values[i]
+            if cur_q is not None:
+                tile_string += str(self.q_values[i]) + '|'
+            else:
+                tile_string += 'n|'
+        tile_string += '___'
+        for action in self.actions:
+            if action is not None:
+                tile_string += str(action) + ','
+        return tile_string
 
 class Board:
 
@@ -98,7 +117,7 @@ class Board:
         # max_col = width - 1
         # Neighbors are in order left, up, right, down
         self.tiles[0][0] = Tile(1,[None,5,2,None])
-        self.tiles[0][1] = Tile(START_LABEL,[1,6,3,None])
+        self.tiles[0][1] = Tile(2,[1,6,3,None])
         self.tiles[0][2] = Tile(3,[2,7,4,None])
         self.tiles[0][3] = Tile(4,[3,8,None,None])
 
@@ -117,44 +136,136 @@ class Board:
         self.tiles[3][2] = Tile(15,[14,None,16,11])
         self.tiles[3][3] = Tile(16,[15,None,None,12])
 
-        self.iterations = 0
+        self.goal_labels = [int(input_list[0]), int(input_list[1])]
+        self.forbidden_label = int(input_list[2])
+        self.wall_label = int(input_list[3])
 
-        self.goals = [input_list[0], input_list[1]]
-        self.forbidden = input_list[2]
-        self.wall = input_list[3]
-
+        # Changes default tiles to special ones specified by user
+        # Updates actions for all tiles according to available neighbors and special status 
         for row in range(4):
             for col in range(4):
-                curTile = self.tiles[row][col]
-                if (curTile.label in self.goals):
-                    curTile.goal = True
-                elif (curTile.label == self.forbidden):
-                    curTile.forbidden = True
-                
+                cur_tile = self.tiles[row][col]
+                if (cur_tile.label in self.goal_labels):
+                    cur_tile.isGoal = True
+                    cur_tile.actions.insert(4,Action.EXIT)
+                    cur_tile.q_values.insert(4,0)
+                elif (cur_tile.label == self.forbidden_label):
+                    cur_tile.isForbidden = True
+                    cur_tile.actions.insert(4,Action.EXIT)
+                    cur_tile.q_values.insert(4,0)
+                elif (cur_tile.label == self.wall_label):
+                    cur_tile.isWall = True
+                else:
+                    for direction_num in range(4):
+                        if cur_tile.neighbors[direction_num] is not None:
+                            cur_tile.actions.insert(direction_num, Action(direction_num))
+                            cur_tile.q_values.insert(direction_num, 0)
+                            
+    def get_tile(self, label):
+        for row in self.tiles:
+            for tile in row:
+                if (tile.label == label):
+                    return tile
+        print("ERROR IF TILE NOT FOUND")
+    
     def update_q(self, q, direction, tile_label):
         for row in range(4):
             for col in range(4):
-                curTile = self.tiles[row][col]
-                if (curTile.label == tile_label):
-                    curTile.update_q(q, direction)
+                cur_tile = self.tiles[row][col]
+                if (cur_tile.label == tile_label):
+                    cur_tile.update_q(q, direction)
         
     def print_to_file(self):
         outF = open("board_output.txt","w")
         outF.writelines(str(self))
         outF.close()
 
+    def print_all_states(self):
+        for row in self.tiles:
+            for tile in row:
+                best_action_str = None
+                if tile.isGoal or tile.isForbidden:
+                    best_action_str = 'EXIT'
+                elif tile.isWall:
+                    best_action_str = 'WALL'
+                else:
+                    best_action_str = str(tile.get_best_action())
+                print(str(tile.label) + best_action_str)
+
+    def print_tile_values(self, index):
+        tile = self.get_tile(index)
+        if tile.isGoal:
+            print('EXIT +100')
+        elif tile.isForbidden:
+            print('EXIT -100')
+        elif tile.isWall:
+            print('WALL 0')
+        else:
+            for q in tile.q_values:
+                if q is not None:
+                    print(str(Action(tile.q_values.index(q))) + ' ' + str(q))
+
     def __str__(self):
         tile_string = ''
         for row in range(3,-1,-1):
             for col in range(4):
-                tile_string += str(self.tiles[row][col]) + '   '
+                tile_string += str(self.tiles[row][col]) + '    '
             tile_string += '\n\n'
         return tile_string
 
-def q_learn():
-    randDirection = Direction(random.randrange(4))
-    print(randDirection)
-    print('ill learn thiz dik')
+def q_learn(board, print_all_states, index):
+    iterations = 0
+    while (iterations < MAX_ITERATIONS):
+        # Reset starting variables
+        cur_tile = board.get_tile(START_LABEL)
+        action = None
+        exited = False
+        small_iter = 0
+        reward_sum = 0
+        while (small_iter < 100):
+            # TODO: Choose random (0.1) or calculated (0.9) action
+            # Currently RANDOM
+            if random.uniform(0, 1) < EPSILON:
+                action = random.choice([x for x in cur_tile.actions if x is not None])          
+            else:
+                action = cur_tile.get_best_action()
+
+            # Set reward
+            next_tile = board.get_tile(cur_tile.neighbors[action.value])
+            if next_tile.isGoal:
+                reward = GOAL_REWARD
+            elif next_tile.isForbidden:
+                reward = FORBIDDEN_REWARD
+            else:
+                reward = LIVING_REWARD
+            reward_sum += reward
+
+            old_q = cur_tile.q_values[action.value]
+
+            # Calculate and update q value
+            new_q = old_q + ALPHA*(reward + GAMMA*next_tile.get_max_q() - old_q)
+            cur_tile.q_values[action.value] = new_q
+
+            if next_tile.isGoal:
+                # print("GOOOOOOAAAAAAAL")
+                break
+            elif next_tile.isForbidden:
+                # print("DEATH")
+                break
+            else:
+                if next_tile.isWall:
+                    yeet = 0
+                    # print("YOU HIT A WALL")
+                else:
+                    cur_tile = next_tile
+            small_iter += 1
+        if (small_iter > 98):
+            print("YOU ALMOST HAD AN INFINITE LOOP HUNNNY")
+        iterations += 1
+    if (print_all_states):
+        board.print_all_states()
+    else:
+        board.print_tile_values(index)
 
 if __name__ == "__main__":
 
@@ -162,18 +273,11 @@ if __name__ == "__main__":
     input_list.pop(0)
     board = Board(input_list)
 
-    board.update_q(0.50, Direction.UP, 1)
-    board.update_q(0.10, Direction.DOWN, 7)
-    board.update_q(0.30, Direction.LEFT, 16)
-    board.update_q(-0.80, Direction.RIGHT, 5)
-
     board.print_to_file()
 
     if (len(input_list) == 5) and (input_list[4] == 'p'):
-        print_all_policies = True
-        q_learn()
+        q_learn(board, True, 0)
     elif (len(input_list) == 6) and (input_list[4] == 'q'):
-        print_all_policies = False
-        q_learn()
+        q_learn(board, False, int(input_list[5]))
     else:
         print('Invalid input, please run again.')
